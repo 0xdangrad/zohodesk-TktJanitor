@@ -1,0 +1,108 @@
+// TktJanitor Zoho Deluge script (for manual input and execution while blueprint mode is disabled).
+//
+void TktJanitorManual()
+{
+	// Make sure you actually want to close everything in the specified range. This version does NOT check to ensure ticket closure only for one specific contact/client.
+	//
+	// First ticket number (#??????)
+	num1 = 0;
+	// Final ticket number (#??????)
+	num2 = 0;
+	//
+	// Unique Zoho Tenant ID (constant). Get this from /setup#setup/developer-space/api/apiauthentication
+	OrgID = #########;
+	//
+	// Input order checker
+	if(num1 > num2)
+	{
+	  temp = num1;
+		num1 = num2;
+		num2 = temp;
+	}
+	//
+	// Client checker (disabled)
+	//FirstTktNum = "{\"ticketNumber\":\"" + num1 + "\"}";
+	//FirstTktClientID = zoho.desk.searchRecords(OrgID,"tickets",0,1,FirstTktNum).getJSON("data").getJSON("contactId");
+	// Checks the first ticket's contact/client so that later when we build a list of ticket IDs to close we can check them against this value-
+	// to ensure that we only close tickets from the same client and no other clients' tickets by mistake.
+	//
+	// Range finder
+	range = num2 - num1;
+	//
+	// For-loop feeder
+	listTrick = leftPad(" ",range).replaceAll(" ",",");
+	listedListTrick = listTrick.toList();
+	//
+	// Generates a list of ticket numbers (#123456) within the specified range so that we have something to work with.
+	TktNums = List();
+	Npp = num1 - 1;
+	nPP = Npp;
+	for each index n_Index in listedListTrick
+	{
+		nPP = nPP + 1;
+		TktNums.add(nPP);
+	}
+	//
+	// Builds a list of 18 digit, encoded ticket IDs from the 5-6 digit ticket numbers.
+	// Also checks if they're from the same client as the first ticket, otherwise they don't enter the list.
+	TktIDs = List();
+	TktNum = "";
+	for each index Nn_Index in TktNums
+	{
+		TktNum = TktNums.get(Nn_Index);
+		schQry = "{\"ticketNumber\":\"" + TktNum + "\"}";
+		response = zoho.desk.searchRecords(OrgID,"tickets",0,1,schQry);
+		//TktClientID = response.getJSON("data").getJSON("contactId");
+		//if(TktClientID == FirstTktClientID)
+		//{
+			TktIDs.add(response.getJSON("data").getJSON("id"));
+		//}
+	}
+	//
+	// Determines the size of our ticket IDs list, if it's >= 50, then it sets the chunk size to 50 (API max).
+	totalIDs = TktIDs.size();
+	if(totalIDs >= 50)
+	{
+		chunkSize = 50;
+	}
+	else if(totalIDs < 50)
+	{
+		chunkSize = totalIDs;
+	}
+	chunkStart = 0;
+	chunkEnd = chunkSize - 1;
+	//
+	// Another for-loop feeder
+	loopList = totalIDs / chunkSize - 1;
+	loopListTrick = leftPad(" ",loopList).replaceAll(" ",",");
+	listedLoopTrick = loopListTrick.toList();
+	//
+	// Calls the API to close our tickets (in chunks of up to 50 at a time).
+	apiURL = "https://desk.zoho.com/supportapi/zd/YOUR-TENANT-NAME-HERE/api/v1/closeTickets";// Change YOUR-TENANT-NAME-HERE and possibly .com to .eu/.in etc...
+	headerData = Map();
+	headerData.put("Content-Type","application/json");
+	for each index c_Index in listedLoopTrick
+	{
+		idChunk = TktIDs.subList(chunkStart,chunkEnd + 1);
+		clsTktPayload = "{\"ids\":[" + idChunk + "]}";
+		// Setup a connection beforehand and edit the connection parameter below accordingly.
+		callAPI = invokeurl
+		[
+			url :apiURL
+			type :POST
+			parameters:clsTktPayload
+			headers:headerData
+			connection:"YOU_CONNECTION_NAME_HERE"
+		];
+		info callAPI;
+		//
+		// Ensures we continue to the next chunk, from where we left off in the list.
+		chunkStart = chunkStart + chunkSize;
+		chunkEnd = min(chunkEnd + chunkSize,totalIDs - 1);
+		finRange = chunkEnd - chunkStart;
+		if(finRange < chunkSize)
+		{
+			chunkSize = finRange;
+		}
+	}
+}
