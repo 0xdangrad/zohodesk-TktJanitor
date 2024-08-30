@@ -1,0 +1,19 @@
+//TktJanitor Zoho Deluge script (for Workflow triggered rule-based automation with Blueprint mode ENABLED).
+//
+void TktJanitorBPAuto(int TktID)
+{
+	HdrData = Map();
+	HdrData.put("Content-Type","application/json");
+	HdrData.put("orgId","YOUR_TENANT_ORG_ID_HERE");
+	BdyPayload = "{ \"APPROVAL\" : { \"approverIds\" : [ YOUR_USER_ID_HERE ], \"subject\" : \"This ticket has been auto-closed.\" }, \"RESOLUTION\" : { \"toNotifyContactForResolution\" : false, \"content\" : \"This ticket has been auto-closed.\" }, \"COMMENT\" : { \"isPublicComment\" : false, \"content\" : \"This ticket has been auto-closed.\"}}";
+	ApiUrl = "https://support.zoho.com/api/v1/tickets/" + TktID + "/transitions/YOUR_TRANSITION_ID_HERE/perform";
+	CloseTkt = invokeurl
+	[
+		url :ApiUrl
+		type :POST
+		parameters:BdyPayload
+		headers:HdrData
+		connection:"YOUR_CONNECTION_NAME_HERE"
+	];
+	info CloseTkt;
+}
